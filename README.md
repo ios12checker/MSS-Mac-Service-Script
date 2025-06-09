@@ -57,4 +57,5 @@ like a normal program.
 
 ## ⚠️ Disclaimer
 
-Use at your own risk. This script executes system-level commands intended for maintenance and troubleshooting. Always review the code and understand each function before using it on production machines.
+Use at your own risk. This script executes <img width="573" alt="Skærmbillede 2025-06-09 kl  21 52 27" src="https://github.com/user-attachments/assets/3d137fdb-1baf-4f6f-80e7-ae5d07ddb77b" />
+system-level commands intended for maintenance and troubleshooting. Always review the code and understand each function before using it on production machines.
