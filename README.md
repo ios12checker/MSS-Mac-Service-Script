@@ -60,3 +60,4 @@ like a normal program.
 Use at your own risk. This script executes
 system-level commands intended for maintenance and troubleshooting. Always review the code and understand each function before using it on production machines.
 <img width="573" alt="Skærmbillede 2025-06-09 kl  21 52 27" src="https://github.com/user-attachments/assets/91a71ddd-a39c-4d32-ba5a-9597af278ab9" />
+<img width="569" alt="Skærmbillede 2025-06-09 kl  21 53 59" src="https://github.com/user-attachments/assets/86e6cb0a-a36c-4be1-b846-1377af41e5b2" />
