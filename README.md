@@ -45,6 +45,8 @@ A lightweight, terminal-based service and diagnostic script for macOS. Designed 
 8. You only have to do this once every update i make, after you have done the whole "Chmod +x" thing. You can just open the script,
 like a normal program.
 
+9. When prompted for your password, enter the same password you use to log in to your macOS account.
+
 ---
 
 ## 💡 Requirements
