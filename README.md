@@ -1,7 +1,6 @@
 # 🍎 MSS – Mac Service Script
 
 📦 Version: v1.0  
-🛠️ Created by: Lil_Batti
 
 ---
 
