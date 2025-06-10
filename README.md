@@ -47,7 +47,7 @@ MSS is a lightweight, terminal-based tool for macOS designed to clean, fix, and 
 
 4. Run the script:
    ```bash
-   ./<drag script file here again>
+   Double click the program and you're good to go.
    ```
 
 5. When prompted for your password, enter the password you use to log in to your Mac (nothing will appear as you type — that's normal)
