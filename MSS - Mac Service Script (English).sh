@@ -49,7 +49,7 @@ install_mas() {
   if command -v mas &> /dev/null; then
     echo "✅ 'mas' is already installed."
   else
-    read -rp "📦 'mas' (Mac App Store CLI) er ikke installeret. Vil du installere den nu? (y/n): " confirm
+    read -rp "📦 'mas' (Mac App Store CLI) is not installed. Do you want to install it now? (y/n): " confirm
     if [[ $confirm == "y" || $confirm == "Y" ]]; then
       brew install mas
     else
