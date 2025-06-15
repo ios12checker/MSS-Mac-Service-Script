@@ -1,6 +1,8 @@
 # 🍎 MSS – Mac Service Script
 
-📦 Version: v1.0  
+![Version](https://img.shields.io/badge/version-v1.0.1-green)
+![Platform](https://img.shields.io/badge/platform-MacOS-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
 ---
 
