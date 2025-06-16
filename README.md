@@ -74,6 +74,46 @@ This script runs system-level operations for cleaning and diagnostics. Use at yo
 Review the code before using it on production machines.
 
 ---
+🛠️ Troubleshooting
+If you cannot open the script, or macOS blocks it:
+
+1. Allow the script to run
+After first opening, go to:
+System Preferences → Security & Privacy → General
+
+Look for a message about MSS_Mac_Service_Script.sh being blocked
+
+Click "Allow Anyway" (or "Open Anyway" if available)
+
+2. Make the script executable
+Open Terminal, navigate to the script’s folder, and run:
+
+```bash
+chmod +x MSS_Mac_Service_Script.sh
+```
+3. Run the script from Terminal
+Open Terminal and type:
+```bash
+./<drag script file into Terminal>
+```
+4. Remove quarantine flag (if needed)
+If macOS still blocks the script, run:
+```bash
+xattr -d com.apple.quarantine <drag script file into Terminal>
+```
+5. Still not working?
+Make sure you’re running macOS 10.13 or newer
+
+Try restarting your Mac after changing permissions
+
+Check that you’re running the script from your user folder, not from Downloads
+
+Ensure you have admin privileges (your user account must have administrator rights)
+
+If you continue to have issues:
+Contact the script author or open an issue on GitHub with screenshots of the error and your macOS version.
+
+---
 
 ## 📸 Screenshots
 <img width="315" alt="Skærmbillede 2025-06-17 kl  01 23 16" src="https://github.com/user-attachments/assets/c621185c-c1fb-43f7-bbbc-8cf12e5ad71d" />
