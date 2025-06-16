@@ -74,7 +74,7 @@ This script runs system-level operations for cleaning and diagnostics. Use at yo
 Review the code before using it on production machines.
 
 ---
-🛠️ Troubleshooting
+## 🛠️ Troubleshooting
 If you cannot open the script, or macOS blocks it:
 
 1. Allow the script to run
