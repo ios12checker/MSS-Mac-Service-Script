@@ -89,7 +89,7 @@ Click "Allow Anyway" (or "Open Anyway" if available)
 Open Terminal, navigate to the script’s folder, and run:
 
 ```bash
-chmod +x MSS_Mac_Service_Script.sh
+chmod +x <drag script file into Terminal>
 ```
 3. Run the script from Terminal
 Open Terminal and type:
