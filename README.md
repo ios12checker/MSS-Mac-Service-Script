@@ -113,6 +113,9 @@ Ensure you have admin privileges (your user account must have administrator righ
 If you continue to have issues:
 Contact the script author or open an issue on GitHub with screenshots of the error and your macOS version.
 
+## 🚀 How to Update
+Just download the new MSS_Mac_Service_Script.sh and replace your old file.
+
 ---
 
 ## 📸 Screenshots
