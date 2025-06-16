@@ -1,6 +1,6 @@
 # 🍎 MSS – Mac Service Script
 
-![Version](https://img.shields.io/badge/version-v1.0.2-green)
+![Version](https://img.shields.io/badge/version-v1.1.0-green)
 ![Platform](https://img.shields.io/badge/platform-MacOS-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
@@ -14,16 +14,17 @@ MSS is a lightweight, terminal-based tool for macOS designed to clean, fix, and 
 
 ## ✅ What Does It Do?
 
-- 🧹 Cleans out hidden system junk (logs, cache, temp files)
+- 🧹 Cleans hidden system junk (logs, cache, temp files)
 - 🌐 Clears DNS cache to fix slow or broken internet
-- 🗑️ Empties Trash and clears user cache folders
-- 🧠 Displays system info (macOS version, uptime, etc.)
+- 🗑️ Clears user cache folders
+- 🖥️ Displays detailed system info (macOS version, uptime, heavy processes, installed apps)
 - 🔧 Checks disk health
-- 📦 Updates software via Homebrew and mas-cli (if installed)
-- 📥 Optionally installs missing tools like Homebrew or mas-cli
+- ⚡ All-in-one maintenance: clear logs, flush DNS, check disk, and cache cleanup in correct order
+- 📦 Updates software via Homebrew, Cask apps, and Mac App Store (mas-cli)
+- 📥 Optionally installs missing tools (Homebrew, mas-cli)
+- 🌐 Runs network diagnostics (ping test + shows your public IPv4)
 - 📜 Generates a detailed activity log for review
-- 📺 Easy-to-read ASCII menu interface — beginner friendly
-
+- 📺 Easy-to-read colored ASCII menu interface — beginner friendly
 ---
 
 ## 💡 Requirements
@@ -75,5 +76,5 @@ Review the code before using it on production machines.
 ---
 
 ## 📸 Screenshots
-<img width="573" alt="453174114-91a71ddd-a39c-4d32-ba5a-9597af278ab9" src="https://github.com/user-attachments/assets/10f6a047-208e-4e38-b89f-7dc72cbbf1ff" />
-<img width="569" alt="453174571-86e6cb0a-a36c-4be1-b846-1377af41e5b2" src="https://github.com/user-attachments/assets/d2df99cd-c1bd-4ed3-b72d-cb02a991b8a7" />
+<img width="315" alt="Skærmbillede 2025-06-17 kl  01 23 16" src="https://github.com/user-attachments/assets/c621185c-c1fb-43f7-bbbc-8cf12e5ad71d" />
+
