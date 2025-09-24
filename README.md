@@ -1,8 +1,13 @@
 # 🍎 MSS – Mac Service Script
 
-![Version](https://img.shields.io/badge/version-v1.1.0-green)
+![Version](https://img.shields.io/badge/version-v1.2.0-green)
 ![Platform](https://img.shields.io/badge/platform-MacOS-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
+
+---
+## 📸 Screenshots
+<img width="377" height="318" alt="Skærmbillede 2025-09-25 kl  01 20 22" src="https://github.com/user-attachments/assets/be90389a-3b77-4b29-bbb1-9484b27e6d66" />
+
 
 ---
 
@@ -116,8 +121,4 @@ Contact the script author or open an issue on GitHub with screenshots of the err
 ## 🚀 How to Update
 Just download the new MSS_Mac_Service_Script.sh and replace your old file.
 
----
-
-## 📸 Screenshots
-<img width="315" alt="Skærmbillede 2025-06-17 kl  01 23 16" src="https://github.com/user-attachments/assets/c621185c-c1fb-43f7-bbbc-8cf12e5ad71d" />
 
