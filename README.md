@@ -1,12 +1,12 @@
 # 🍎 MSS – Mac Service Script
 
-![Version](https://img.shields.io/badge/version-v1.2.0-green)
+![Version](https://img.shields.io/badge/version-v1.3.0-green)
 ![Platform](https://img.shields.io/badge/platform-MacOS-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
 ---
 ## 📸 Screenshots
-<img width="377" height="318" alt="Skærmbillede 2025-09-25 kl  01 20 22" src="https://github.com/user-attachments/assets/be90389a-3b77-4b29-bbb1-9484b27e6d66" />
+<img width="299" height="276" alt="Skærmbillede 2025-12-11 kl  01 32 41" src="https://github.com/user-attachments/assets/38d4c97a-3b9c-4f88-a178-222be55fde72" />
 
 
 ---
