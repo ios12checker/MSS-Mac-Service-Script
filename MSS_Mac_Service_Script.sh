@@ -184,6 +184,17 @@ latest_release_tag() {
     sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1
 }
 
+latest_release_asset_url() {
+  local asset_name="${MSS_REMOTE_SCRIPT_NAME}"
+  local urls
+  urls="$(curl -fsSL "https://api.github.com/repos/${MSS_GITHUB_REPO}/releases/latest" 2>/dev/null | \
+    sed -n 's/.*"browser_download_url": *"\([^"]*\)".*/\1/p')" || return 1
+  if [[ -n "${asset_name}" ]]; then
+    echo "${urls}" | grep -m1 "/${asset_name}$" && return 0
+  fi
+  echo "${urls}" | head -n1
+}
+
 resolve_update_url() {
   if [[ -n "${MSS_SELF_UPDATE_URL}" ]]; then
     echo "${MSS_SELF_UPDATE_URL}"
@@ -191,7 +202,12 @@ resolve_update_url() {
   fi
 
   if [[ "${MSS_USE_RELEASES}" == "1" ]]; then
-    local tag
+    local tag asset_url
+    asset_url="$(latest_release_asset_url)"
+    if [[ -n "${asset_url}" ]]; then
+      echo "${asset_url}"
+      return 0
+    fi
     tag="$(latest_release_tag)"
     if [[ -n "${tag}" ]]; then
       echo "https://raw.githubusercontent.com/${MSS_GITHUB_REPO}/${tag}/${MSS_REMOTE_SCRIPT_NAME}"
