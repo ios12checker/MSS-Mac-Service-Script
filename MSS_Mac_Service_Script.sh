@@ -3,8 +3,24 @@
 set -euo pipefail
 
 # ========== CONFIG & COLORS ==========
-VERSION="1.2.0"
+VERSION="1.3.0"
+SCRIPT_ARGS=("$@")
+# GitHub repo/branch used for self-update (override via env vars if you fork)
+MSS_GITHUB_REPO="${MSS_GITHUB_REPO:-ios12checker/MSS-Mac-Service-Script}"
+MSS_UPDATE_BRANCH="${MSS_UPDATE_BRANCH:-main}"
+MSS_USE_RELEASES="${MSS_USE_RELEASES:-1}"
+MSS_SCRIPT_NAME="$(basename "${BASH_SOURCE[0]:-$0}")"
+MSS_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+MSS_SCRIPT_PATH="${MSS_SCRIPT_DIR}/${MSS_SCRIPT_NAME}"
+MSS_REMOTE_SCRIPT_NAME="${MSS_REMOTE_SCRIPT_NAME:-MSS_Mac_Service_Script.sh}"
+MSS_SELF_UPDATE_URL="${MSS_SELF_UPDATE_URL:-}"
+MSS_AUTO_UPDATE="${MSS_AUTO_UPDATE:-1}"
 LOGFILE=~/maintenance.log
+REPORT_DIR="${HOME}/Desktop/SystemReports"
+HOSTS_BACKUP="/etc/hosts.mss.backup"
+HOSTS_MARK_START="# >>> MSS ADBLOCK START"
+HOSTS_MARK_END="# <<< MSS ADBLOCK END"
+ADBLOCK_URL="https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
 
 RED="\033[0;31m"
 GREEN="\033[0;32m"
@@ -38,11 +54,243 @@ warn()  { echo -e "${YELLOW}⚠ $*${RESET}"; }
 fail()  { echo -e "${RED}✖ $*${RESET}"; }
 info()  { echo -e "${CYAN}ℹ $*${RESET}"; }
 
+confirm() {
+  local prompt="${1:-Proceed?}"
+  read -rp "$prompt (y/N): " _ans
+  [[ "${_ans}" =~ ^[Yy]$ ]]
+}
+
+# Returns 0 if ver2 > ver1 (remote newer), else 1
+version_is_newer() {
+  local ver1="$1" ver2="$2"
+  local IFS=.
+  local i v1=($ver1) v2=($ver2)
+  for ((i=0; i<${#v1[@]} || i<${#v2[@]}; i++)); do
+    local a=${v1[i]:-0}
+    local b=${v2[i]:-0}
+    if ((10#$b > 10#$a)); then
+      return 0
+    elif ((10#$b < 10#$a)); then
+      return 1
+    fi
+  done
+  return 1
+}
+
+ensure_report_dir() {
+  mkdir -p "${REPORT_DIR}"
+}
+
+timestamp() {
+  date +"%Y-%m-%d_%H-%M-%S"
+}
+
+backup_hosts_once() {
+  if sudo test -f "${HOSTS_BACKUP}"; then
+    return
+  fi
+  info "Backing up /etc/hosts to ${HOSTS_BACKUP}"
+  sudo cp /etc/hosts "${HOSTS_BACKUP}" 2>/dev/null || warn "Could not back up hosts file."
+}
+
+strip_existing_block() {
+  sudo /bin/sh -c "sed '/^${HOSTS_MARK_START}$/,/^${HOSTS_MARK_END}$/d' /etc/hosts" 2>/dev/null
+}
+
+apply_hosts_blocklist() {
+  clear
+  print_title
+  info "Applying hosts-based adblock..."
+  backup_hosts_once
+  local tmp_list tmp_new
+  tmp_list="$(mktemp)" || { fail "Could not create temp file."; pause; return; }
+  tmp_new="$(mktemp)" || { rm -f "$tmp_list"; fail "Could not create temp file."; pause; return; }
+  if ! curl -fsSL "${ADBLOCK_URL}" -o "${tmp_list}"; then
+    warn "Failed to download blocklist."
+    rm -f "${tmp_list}" "${tmp_new}"
+    pause
+    return
+  fi
+  strip_existing_block > "${tmp_new}"
+  {
+    echo "${HOSTS_MARK_START}"
+    # Only keep real host entries to reduce noise
+    grep -E '^(0\.0\.0\.0|127\.0\.0\.1)\s' "${tmp_list}" || true
+    echo "${HOSTS_MARK_END}"
+  } >> "${tmp_new}"
+  if sudo cp "${tmp_new}" /etc/hosts; then
+    ok "Adblock entries applied to /etc/hosts."
+  else
+    fail "Failed to write /etc/hosts."
+  fi
+  rm -f "${tmp_list}" "${tmp_new}"
+  pause
+}
+
+remove_hosts_blocklist() {
+  clear
+  print_title
+  info "Removing hosts-based adblock..."
+  local tmp_new
+  tmp_new="$(mktemp)" || { fail "Could not create temp file."; pause; return; }
+  strip_existing_block > "${tmp_new}"
+  if sudo cp "${tmp_new}" /etc/hosts; then
+    ok "Adblock entries removed from /etc/hosts."
+  else
+    fail "Failed to write /etc/hosts."
+  fi
+  rm -f "${tmp_new}"
+  pause
+}
+
+doh_supported() {
+  # Placeholder check: macOS networksetup currently lacks DoH flags on many versions
+  networksetup -help | grep -qi "doh" || networksetup -help | grep -qi "https"
+}
+
+enable_doh() {
+  clear
+  print_title
+  if ! doh_supported; then
+    warn "DNS-over-HTTPS configuration is not supported via networksetup on this macOS version."
+    pause
+    return
+  fi
+  warn "DoH tooling not available on this system. Skipping."
+  pause
+}
+
+disable_doh() {
+  clear
+  print_title
+  if ! doh_supported; then
+    warn "DNS-over-HTTPS configuration is not supported via networksetup on this macOS version."
+    pause
+    return
+  fi
+  warn "DoH disable not available on this system. Skipping."
+  pause
+}
+
 pause() {
   echo
   read -n 1 -s -r -p "Press any key to return to menu..."
   echo
   return
+}
+
+latest_release_tag() {
+  curl -fsSL "https://api.github.com/repos/${MSS_GITHUB_REPO}/releases/latest" 2>/dev/null | \
+    sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1
+}
+
+resolve_update_url() {
+  if [[ -n "${MSS_SELF_UPDATE_URL}" ]]; then
+    echo "${MSS_SELF_UPDATE_URL}"
+    return 0
+  fi
+
+  if [[ "${MSS_USE_RELEASES}" == "1" ]]; then
+    local tag
+    tag="$(latest_release_tag)"
+    if [[ -n "${tag}" ]]; then
+      echo "https://raw.githubusercontent.com/${MSS_GITHUB_REPO}/${tag}/${MSS_REMOTE_SCRIPT_NAME}"
+      return 0
+    else
+      warn "Could not fetch latest release tag; falling back to branch '${MSS_UPDATE_BRANCH}'."
+    fi
+  fi
+
+  echo "https://raw.githubusercontent.com/${MSS_GITHUB_REPO}/${MSS_UPDATE_BRANCH}/${MSS_REMOTE_SCRIPT_NAME}"
+}
+
+self_update() {
+  local mode="${1:-manual}"
+  local tmp remote_version update_url
+
+  if [[ "${mode}" != "auto" ]]; then
+    clear
+    print_title
+  fi
+
+  if ! command -v curl &>/dev/null; then
+    warn "curl is required for self-update. Skipping."
+    [[ "${mode}" != "auto" ]] && pause
+    return 0
+  fi
+
+  update_url="$(resolve_update_url)"
+  if [[ -z "${update_url}" ]]; then
+    warn "Self-update URL not configured. Set MSS_SELF_UPDATE_URL or MSS_GITHUB_REPO."
+    [[ "${mode}" != "auto" ]] && pause
+    return 0
+  fi
+
+  info "Checking for MSS updates..."
+  tmp="$(mktemp)" || { warn "Could not create temp file."; [[ "${mode}" != "auto" ]] && pause; return 0; }
+
+  if ! curl -fsSL "${update_url}" -o "${tmp}"; then
+    warn "Could not download latest script from ${update_url}."
+    rm -f "${tmp}"
+    [[ "${mode}" != "auto" ]] && pause
+    return 0
+  fi
+
+  remote_version=$(sed -n 's/^VERSION="\(.*\)"/\1/p' "${tmp}" | head -n 1)
+  if [[ -z "${remote_version}" ]]; then
+    warn "Could not detect remote version."
+    rm -f "${tmp}"
+    [[ "${mode}" != "auto" ]] && pause
+    return 0
+  fi
+
+  if [[ "${remote_version}" == "${VERSION}" ]]; then
+    if [[ "${mode}" != "auto" ]]; then
+      ok "Already up to date (${VERSION})."
+      pause
+    fi
+    rm -f "${tmp}"
+    return 0
+  fi
+
+  if ! version_is_newer "${VERSION}" "${remote_version}"; then
+    warn "Local version (${VERSION}) is newer than remote (${remote_version}); skipping update."
+    rm -f "${tmp}"
+    [[ "${mode}" != "auto" ]] && pause
+    return 0
+  fi
+
+  warn "New version available: ${remote_version} (current ${VERSION})."
+  if [[ "${mode}" != "auto" ]]; then
+    if ! confirm "Update now"; then
+      warn "Update skipped."
+      rm -f "${tmp}"
+      pause
+      return 0
+    fi
+  else
+    info "Auto-update enabled; updating now..."
+  fi
+
+  if ! cp "${tmp}" "${MSS_SCRIPT_PATH}"; then
+    fail "Failed to replace script at ${MSS_SCRIPT_PATH}. Check permissions."
+    rm -f "${tmp}"
+    [[ "${mode}" != "auto" ]] && pause
+    return 0
+  fi
+
+  chmod +x "${MSS_SCRIPT_PATH}" || true
+  ok "Updated MSS to version ${remote_version}."
+  rm -f "${tmp}"
+  info "Restarting updated script..."
+  exec "${MSS_SCRIPT_PATH}" "${SCRIPT_ARGS[@]}"
+}
+
+auto_update_on_launch() {
+  if [[ "${MSS_AUTO_UPDATE}" != "1" ]]; then
+    return 0
+  fi
+  self_update "auto" || true
 }
 
 # Keepalive management (replaces global background loop)
@@ -53,6 +301,7 @@ cleanup() {
   fi
 }
 trap 'echo -e "\n${RED}Quitting the script...${RESET}"; cleanup; exit' SIGINT SIGTERM
+trap cleanup EXIT
 
 # Log only if $HOME is writable
 if [[ -w "${HOME}" ]]; then
@@ -116,11 +365,23 @@ cleanup_cache() {
   echo -e "${CYAN}Clearing user cache...${RESET}\n"
   local cache_dir="${HOME}/Library/Caches"
   if [[ -d "${cache_dir}" ]]; then
-    local count
-    count="$(find "${cache_dir}" -type f 2>/dev/null | wc -l | tr -d ' ')"
+    local count size_before size_after freed_kb
+    size_before="$(du -sk "${cache_dir}" 2>/dev/null | awk '{print $1}' || true)"
+    size_before=${size_before:-0}
+    count="$(find "${cache_dir}" -type f 2>/dev/null | wc -l | tr -d ' ' || true)"
+    count=${count:-0}
+    info "About to delete ${count} cache files (~$((size_before / 1024)) MB)."
+    if ! confirm "Proceed with cache cleanup"; then
+      warn "Cache cleanup skipped."
+      pause
+      return
+    fi
     find "${cache_dir}" -type f -delete 2>/dev/null || true
     find "${cache_dir}" -type d -empty -delete 2>/dev/null || true
-    ok "${count} cache files cleared."
+    size_after="$(du -sk "${cache_dir}" 2>/dev/null | awk '{print $1}' || true)"
+    size_after=${size_after:-0}
+    freed_kb=$(( size_before > size_after ? size_before - size_after : 0 ))
+    ok "${count} cache files cleared (~$((freed_kb / 1024)) MB freed)."
   else
     warn "No user cache directory found."
   fi
@@ -135,7 +396,27 @@ clear_logs() {
   fi
   # Trim only large classic .log files to avoid breaking system logging
   if [[ -d /var/log ]]; then
-    sudo find /var/log -type f -name "*.log" -size +5M -delete 2>/dev/null || true
+    local trimmed=0
+    local candidates
+    candidates=$(sudo find /var/log -type f -name "*.log" -size +5M 2>/dev/null | head -n 5)
+    if [[ -z "${candidates}" ]]; then
+      info "No large log files found to trim."
+    else
+      info "Will trim the following log files to 1MB (showing up to 5):"
+      echo "${candidates}"
+      if ! confirm "Proceed with log trimming"; then
+        warn "Log trimming skipped."
+        pause
+        return
+      fi
+    fi
+    while IFS= read -r logfile; do
+      sudo truncate -s 1M "$logfile" 2>/dev/null || true
+      trimmed=$((trimmed + 1))
+    done < <(sudo find /var/log -type f -name "*.log" -size +5M 2>/dev/null)
+    if (( trimmed > 0 )); then
+      ok "Trimmed $trimmed large log file(s) to 1MB."
+    fi
   fi
   ok "Log rotation/cleanup done."
 }
@@ -208,6 +489,38 @@ update_mas() {
   pause
 }
 
+brew_search_install() {
+  clear
+  print_title
+  if ! command -v brew &>/dev/null; then
+    warn "Homebrew not found. Install it first from the updates menu."
+    pause
+    return
+  fi
+  read -rp "Search term (brew formula/cask): " term
+  if [[ -z "${term}" ]]; then
+    warn "No search term provided."
+    pause
+    return
+  fi
+  info "Searching brew for '${term}' (showing up to 20 results)..."
+  brew search --desc "${term}" | head -n 20
+  echo
+  read -rp "Exact package to install (blank to skip): " pkg
+  if [[ -z "${pkg}" ]]; then
+    warn "Install skipped."
+    pause
+    return
+  fi
+  if confirm "Install '${pkg}' via brew"; then
+    brew install "${pkg}" || brew install --cask "${pkg}" || true
+    ok "Install attempted for '${pkg}'."
+  else
+    warn "Install cancelled."
+  fi
+  pause
+}
+
 update_all() {
   clear
   print_title
@@ -253,6 +566,57 @@ info_apps() {
   echo -e "${CYAN}=== INSTALLED APPLICATIONS ===${RESET}\n"
   ls /Applications
   echo
+  pause
+}
+
+export_reports() {
+  clear
+  print_title
+  ensure_report_dir
+  local ts outfile_sys outfile_net outfile_proc
+  ts="$(timestamp)"
+  outfile_sys="${REPORT_DIR}/System_Info_${ts}.txt"
+  outfile_net="${REPORT_DIR}/Network_Info_${ts}.txt"
+  outfile_proc="${REPORT_DIR}/Process_List_${ts}.txt"
+
+  info "Saving reports to ${REPORT_DIR}"
+
+  {
+    echo "=== SYSTEM INFO ==="
+    sw_vers
+    uname -a
+    echo
+    system_profiler SPHardwareDataType
+    echo
+    system_profiler SPSoftwareDataType
+  } > "${outfile_sys}" 2>/dev/null || true
+
+  {
+    echo "=== NETWORK INTERFACES ==="
+    networksetup -listallhardwareports 2>/dev/null
+    echo
+    echo "=== IFCONFIG ==="
+    ifconfig 2>/dev/null
+    echo
+    echo "=== ROUTING TABLE ==="
+    netstat -rn 2>/dev/null
+    echo
+    echo "=== DNS CONFIG ==="
+    scutil --dns 2>/dev/null | sed -n '1,200p'
+  } > "${outfile_net}" 2>/dev/null || true
+
+  {
+    echo "=== TOP CPU ==="
+    ps aux | sort -nrk 3,3 | head -n 20
+    echo
+    echo "=== TOP MEM ==="
+    ps aux | sort -nrk 4,4 | head -n 20
+  } > "${outfile_proc}" 2>/dev/null || true
+
+  ok "Reports saved:"
+  echo "  ${outfile_sys}"
+  echo "  ${outfile_net}"
+  echo "  ${outfile_proc}"
   pause
 }
 
@@ -377,6 +741,32 @@ network_diagnostics() {
 
 # ========== MENUS ==========
 
+maintenance_menu() {
+  while true; do
+    clear
+    print_title
+    echo "🛠️ System maintenance:"
+    echo "  1) All-in-one (logs + DNS + disk verify + cache)"
+    echo "  2) Minimal (logs + cache)"
+    echo "  3) Logs only"
+    echo "  4) Cache only"
+    echo "  5) DNS flush"
+    echo "  6) Disk verify"
+    echo "  7) Return"
+    read -rp "Your choice: " choice
+    case $choice in
+      1) maintenance_all ;;
+      2) clear_logs; cleanup_cache; ok "Minimal maintenance completed."; pause ;;
+      3) clear_logs ; pause ;;
+      4) cleanup_cache ; pause ;;
+      5) flush_dns ; pause ;;
+      6) check_disk ; pause ;;
+      7) return ;;
+      *) warn "Invalid Choice!"; sleep 1 ;;
+    esac
+  done
+}
+
 main_menu() {
   while true; do
     print_title
@@ -393,7 +783,7 @@ main_menu() {
       1) update_menu ;;
       2) info_menu ;;
       3) cleanup_menu ;;
-      4) maintenance_all ;;
+      4) maintenance_menu ;;
       5) misc_menu ;;
       6) contact_info ;;
       7) info "👋 Goodbye!"; cleanup; exit 0 ;;
@@ -410,14 +800,18 @@ update_menu() {
   echo "  2) Update Cask apps"
   echo "  3) Update App Store apps"
   echo "  4) Update Everything"
-  echo "  5) Return"
+  echo "  5) Search/install a package (brew)"
+  echo "  6) Update MSS script"
+  echo "  7) Return"
   read -rp "Your choice: " choice
   case $choice in
     1) update_brew ;;
     2) update_casks ;;
     3) update_mas ;;
     4) update_all ;;
-    5) return ;;
+    5) brew_search_install ;;
+    6) self_update ;;
+    7) return ;;
     *) warn "Invalid Choice!";;
   esac
   return
@@ -431,14 +825,16 @@ info_menu() {
   echo "  2) Show uptime"
   echo "  3) Show heavy processes"
   echo "  4) Find installed apps"
-  echo "  5) Return"
+  echo "  5) Export reports to Desktop"
+  echo "  6) Return"
   read -rp "Your choice: " choice
   case $choice in
     1) info_system ;;
     2) info_uptime ;;
     3) info_processes ;;
     4) info_apps ;;
-    5) return ;;
+    5) export_reports ;;
+    6) return ;;
     *) warn "Invalid Choice!";;
   esac
   return
@@ -451,17 +847,13 @@ cleanup_menu() {
   echo "  1) Clear cache"
   echo "  2) Clear logfiles"
   echo "  3) Clear DNS-cache"
-  echo "  4) All-in-one Maintenance"
-  echo "  5) Minimal maintenance (only cache and logs)"
-  echo "  6) Return"
+  echo "  4) Return"
   read -rp "Your choice: " choice
   case $choice in
     1) cleanup_cache ;;
     2) clear_logs ;;
     3) flush_dns ;;
-    4) maintenance_all ;;
-    5) cleanup_cache; clear_logs; ok "Minimal maintenance completed."; pause ;;
-    6) return ;;
+    4) return ;;
     *) warn "Invalid Choice!";;
   esac
   return
@@ -479,7 +871,11 @@ misc_menu() {
   echo "  6) Restart Mac"
   echo "  7) Install mas"
   echo "  8) Network diagnostics"
-  echo "  9) Return"
+  echo "  9) Apply hosts adblock"
+  echo " 10) Remove hosts adblock"
+  echo " 11) Enable DNS-over-HTTPS (if supported)"
+  echo " 12) Disable DNS-over-HTTPS (if supported)"
+  echo " 13) Return"
   read -rp "Your choice: " choice
   case $choice in
     1) toggle_hidden_files ;;
@@ -490,13 +886,18 @@ misc_menu() {
     6) restart_mac ;;
     7) install_mas ;;
     8) network_diagnostics ;;
-    9) return ;;
+    9) apply_hosts_blocklist ;;
+    10) remove_hosts_blocklist ;;
+    11) enable_doh ;;
+    12) disable_doh ;;
+    13) return ;;
     *) warn "Invalid choice!";;
   esac
   return
 }
 
 # ========== STARTUP ==========
+auto_update_on_launch
 require_sudo
 require_homebrew
 main_menu
